@@ -1,0 +1,21 @@
+{
+  "name": "Padel@Home",
+  "short_name": "Padel@Home",
+  "description": "Sistema de reservas de pistas de pádel para residencias.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0077ff",
+  "icons": [
+    {
+      "src": "images/icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "images/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

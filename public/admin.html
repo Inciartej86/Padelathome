@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Padel@Home - Panel de Admin</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="manifest" href="/manifest.json">
+</head>
+<body>
+  <div class="container">
+    <header class="main-header">
+      <h1>Panel de Administración</h1>
+      <p>Bienvenido, <span id="admin-name"></span>. <button type="button" id="dashboard-link" onclick="location.href='/dashboard.html'">Ir al Dashboard</button> <button type="button" id="logout-button">Cerrar Sesión</button></p>
+    </header>
+
+    <main>
+      <div class="tabs-container">
+        <div class="tabs-nav">
+          <button class="tab-link active" data-tab="users">Usuarios</button>
+          <button class="tab-link" data-tab="infrastructure">Infraestructura</button>
+        </div>
+
+        <div id="users" class="tab-content active">
+          <section class="card admin-card">
+            <div class="accordion-item">
+              <div class="accordion-header"><h3>Invitar Nuevo Usuario</h3><span class="accordion-icon"></span></div>
+              <div class="accordion-content">
+                <form id="invite-user-form">
+                  <div class="form-group"><label for="invite-name">Nombre:</label><input type="text" id="invite-name" required></div>
+                  <div class="form-group"><label for="invite-email">Email:</label><input type="email" id="invite-email" required></div>
+                  <div class="form-group"><label for="invite-building">Edificio:</label><select id="invite-building" required></select></div>
+                  <div class="form-group"><label for="invite-floor">Piso:</label><input type="text" id="invite-floor" required></div>
+                  <div class="form-group"><label for="invite-door">Puerta:</label><input type="text" id="invite-door" required></div>
+                  <button type="submit">Enviar Invitación</button>
+                </form>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <div class="accordion-header"><h3>Usuarios Registrados</h3><span class="accordion-icon"></span></div>
+              <div class="accordion-content">
+                <div id="user-management">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                        <th>Estado</th>
+                        <th>Rol</th>
+                        <th>Acciones</th>
+                        <th>Acciones Avanzadas</th>
+                      </tr>
+                    </thead>
+                    <tbody id="user-table-body">
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div id="infrastructure" class="tab-content">
+          <section class="card admin-card">
+            <div class="accordion-item">
+              <div class="accordion-header"><h3>Gestión de Edificios</h3><span class="accordion-icon"></span></div>
+              <div class="accordion-content">
+                <div id="building-management">
+                  <h3 id="building-form-title">Añadir Nuevo Edificio</h3>
+                  <form id="building-form">
+                    <input type="hidden" id="building-id">
+                    <div class="form-group"><label for="building-address">Dirección / Nombre:</label><input type="text" id="building-address" required></div>
+                    <div class="form-group"><label for="building-description">Descripción:</label><textarea id="building-description" rows="2"></textarea></div>
+                    <div class="form-buttons">
+                      <button type="submit">Guardar Edificio</button>
+                      <button type="button" id="cancel-building-edit-btn" style="display: none;">Cancelar</button>
+                    </div>
+                  </form>
+                  <h3>Edificios Existentes</h3>
+                  <div id="buildings-list-container"></div>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <div class="accordion-header"><h3>Gestión de Pistas</h3><span class="accordion-icon"></span></div>
+              <div class="accordion-content">
+                <div id="court-management">
+                  <h3 id="court-form-title">Crear Nueva Pista</h3>
+                  <form id="court-form">
+                    <input type="hidden" id="court-id">
+                    <div class="form-group"><label for="court-name">Nombre:</label><input type="text" id="court-name" required></div>
+                    <div class="form-group"><label for="court-description">Descripción:</label><textarea id="court-description" rows="2"></textarea></div>
+                    <div id="court-active-div" style="display: none;" class="form-group"><label for="court-is-active">Activa:</label><input type="checkbox" id="court-is-active"></div>
+                    <div class="form-buttons">
+                      <button type="submit">Guardar</button>
+                      <button type="button" id="cancel-edit-btn" style="display: none;">Cancelar</button>
+                    </div>
+                  </form>
+                  <h3>Pistas Existentes</h3>
+                  <div id="courts-list-container"></div>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <div class="accordion-header"><h3>Gestión de Bloqueos</h3><span class="accordion-icon"></span></div>
+              <div class="accordion-content">
+                <div id="block-management">
+                  <h3>Crear Nuevo Bloqueo</h3>
+                  <form id="create-block-form">
+                    <div class="form-group"><label for="block-court-select">Pista:</label><select id="block-court-select" required></select></div>
+                    <div class="form-group"><label for="block-start-time">Inicio:</label><input type="datetime-local" id="block-start-time" required></div>
+                    <div class="form-group"><label for="block-end-time">Fin:</label><input type="datetime-local" id="block-end-time" required></div>
+                    <div class="form-group"><label for="block-reason">Motivo:</label><input type="text" id="block-reason"></div>
+                    <button type="submit">Crear Bloqueo</button>
+                  </form>
+                  <h3>Bloqueos Activos</h3>
+                  <div id="blocks-list-container"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <section class="card admin-card full-width-card">
+        <h2>Gestión de Ajustes Generales</h2>
+        <div id="settings-management">
+          <form id="settings-form">
+            <p>Aquí puedes cambiar los parámetros de funcionamiento de la aplicación.</p>
+            <div class="settings-grid">
+              <div class="form-group"><label for="setting-open-time">Hora de Apertura:</label><input type="time" id="setting-open-time"></div>
+              <div class="form-group"><label for="setting-close-time">Hora de Cierre:</label><input type="time" id="setting-close-time"></div>
+              <div class="form-group"><label for="setting-advance-days">Días de Antelación:</label><input type="number" id="setting-advance-days" min="1"></div>
+              <div class="form-group"><label for="setting-gap-optimization">Optimización de Huecos:</label><input type="checkbox" id="setting-gap-optimization"></div>
+            </div>
+            <button type="submit">Guardar todos los Ajustes</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="card admin-card full-width-card">
+        <h2>Estadísticas del Sistema</h2>
+        <div id="stats-overview">
+          <div class="stats-grid">
+            <div class="stat-item">
+              <h3>Reservas Totales (últimos 30 días)</h3>
+              <p id="total-bookings">--</p>
+            </div>
+            <div class="stat-item">
+              <h3>Usuarios Más Activos (últimos 30 días)</h3>
+              <ul id="most-active-users">
+                <li>Cargando...</li>
+              </ul>
+            </div>
+            <div class="stat-item">
+              <h3>Horas Pico de Reserva (últimos 30 días)</h3>
+              <ul id="peak-hours">
+                <li>Cargando...</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  
+  <script src="admin.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

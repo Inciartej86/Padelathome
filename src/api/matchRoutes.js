@@ -1,0 +1,18 @@
+const express = require('express');
+const router = express.Router();
+const { getOpenMatches, joinOpenMatch, leaveOpenMatch, getMatchParticipants } = require('../controllers/matchController');
+const { protect } = require('../middleware/authMiddleware');
+
+// GET /api/matches/open - Obtener todas las partidas abiertas disponibles
+router.get('/open', protect, getOpenMatches);
+
+// POST /api/matches/:bookingId/join - Unirse a una partida abierta
+router.post('/:bookingId/join', protect, joinOpenMatch);
+
+// DELETE /api/matches/:bookingId/leave - Abandonar una partida abierta
+router.delete('/:bookingId/leave', protect, leaveOpenMatch);
+
+// GET /api/matches/:bookingId/participants - Ver los participantes de una partida
+router.get('/:bookingId/participants', protect, getMatchParticipants);
+
+module.exports = router;

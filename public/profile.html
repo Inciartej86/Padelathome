@@ -1,0 +1,70 @@
+<!DOCTYPE html> <html lang="es"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Padel@Home - Mi Perfil</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="manifest" href="/manifest.json">
+</head>
+<body>
+
+  <div class="container">
+    <header class="main-header">
+      <h1>Mi Perfil</h1>
+      <div class="header-buttons">
+        <button id="dashboard-btn">Volver al Dashboard</button>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2>Información Personal</h2>
+      <form id="profile-form">
+        <div class="form-group">
+          <label for="profile-email">Correo Electrónico (no se puede cambiar):</label>
+          <input type="email" id="profile-email" disabled>
+        </div>
+        <div class="form-group">
+          <label for="profile-building">Edificio / Dirección:</label>
+          <input type="text" id="profile-building" disabled>
+        </div>
+        <div class="form-group">
+          <label for="profile-name">Nombre Completo:</label>
+          <input type="text" id="profile-name" required>
+        </div>
+        <div class="form-group">
+          <label for="profile-floor">Piso:</label>
+          <input type="text" id="profile-floor">
+        </div>
+        <div class="form-group">
+          <label for="profile-door">Puerta:</label>
+          <input type="text" id="profile-door">
+        </div>
+        <div class="form-group">
+          <label for="profile-phone">Teléfono:</label>
+          <input type="tel" id="profile-phone">
+        </div>
+        <button type="submit">Actualizar Información</button>
+      </form>
+      <p id="profile-message" class="success-text"></p>
+    </section>
+
+    <section class="card">
+      <h2>Cambiar Contraseña</h2>
+      <form id="password-form">
+        <div class="form-group">
+          <label for="old-password">Contraseña Antigua:</label>
+          <input type="password" id="old-password" required>
+        </div>
+        <div class="form-group">
+          <label for="new-password">Contraseña Nueva:</label>
+          <input type="password" id="new-password" required>
+        </div>
+        <button type="submit">Cambiar Contraseña</button>
+      </form>
+      <p id="password-message"></p>
+    </section>
+  </div>
+
+  <script src="profile.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

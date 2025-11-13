@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Padel@Home - Dashboard</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="manifest" href="/manifest.json">
+</head>
+<body>
+    <div class="container">
+        <header class="main-header">
+            <h1 id="welcome-message">Bienvenido a Padel@Home</h1>
+            <div class="header-buttons">
+                <button id="admin-panel-btn" style="display: none;">Panel de Admin</button>
+                <button id="faq-button" onclick="location.href='/faq.html'">FAQ</button>
+                <button id="logout-button">Cerrar Sesión</button>
+            </div>
+        </header>
+    
+        <section class="card" id="my-booking-container">
+            <h2>Mi Próxima Reserva</h2>
+            <div id="my-booking">Cargando...</div>
+        </section>
+    
+        <section class="card">
+            <h2>Calendario Semanal de Disponibilidad</h2>
+            <div class="calendar-header">
+                <button id="prev-week-btn">&lt; Semana Anterior</button>
+                <h3 id="week-dates-title">Cargando...</h3>
+                <button id="next-week-btn">Semana Siguiente &gt;</button>
+            </div>
+            <div id="weekly-calendar-container">
+                </div>
+        </section>
+    </div>
+
+    <div id="modal-overlay" class="hidden">
+        <div id="booking-modal" class="card">
+            <h3 id="modal-title">Confirmar Reserva</h3>
+            <p>Has seleccionado el horario de las <strong id="modal-time">--:--</strong>.</p>
+            <div class="form-group open-match-toggle">
+                <input type="checkbox" id="open-match-checkbox">
+                <label for="open-match-checkbox">Abrir partida (4 jugadores)</label>
+            </div>
+            <p>Por favor, elige la duración:</p>
+            <div id="modal-options-container">
+                </div>
+            <hr>
+            <button id="modal-cancel-btn">Cancelar</button>
+        </div>
+    </div>
+  
+    <div id="waitlist-modal-overlay" class="hidden">
+        <div id="waitlist-modal" class="card">
+            <h3>Horario Ocupado</h3>
+            <p>Este horario ya está reservado.</p>
+            <p>¿Quieres que te notifiquemos si se libera?</p>
+            <div id="waitlist-modal-options">
+                <button id="waitlist-join-btn">Sí, agregarme a la lista</button>
+                <button id="waitlist-cancel-btn">No, gracias</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="join-match-modal-overlay" class="hidden">
+        <div id="join-match-modal" class="card">
+            <h3>Unirse a Partida Abierta</h3>
+            <p>Has seleccionado una partida abierta para el <strong id="join-match-time">--:--</strong>.</p>
+            <p>Participantes actuales: <strong id="join-match-participants">--/--</strong>.</p>
+            <p>¿Quieres unirte a esta partida?</p>
+            <div id="join-match-modal-options">
+                <button id="join-match-confirm-btn">Sí, unirme</button>
+                <button id="join-match-cancel-btn">No, gracias</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nuevo Modal para Mi Reserva -->
+    <div id="my-booking-modal-overlay" class="hidden">
+        <div id="my-booking-modal" class="card">
+            <h3>Mi Reserva</h3>
+            <p>Esta pista ya está reservada por ti para el <strong id="my-booking-modal-time">--:--</strong>.</p>
+            <p>¿Quieres cancelarla?</p>
+            <div id="my-booking-modal-options">
+                <button id="my-booking-cancel-btn">Sí, cancelar</button>
+                <button id="my-booking-close-btn">No, mantener</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nuevo Modal para Mi Partida Abierta -->
+    <div id="my-match-modal-overlay" class="hidden">
+        <div id="my-match-modal" class="card">
+            <h3>Mi Partida Abierta</h3>
+            <p>Estás inscrito en esta partida abierta para el <strong id="my-match-modal-time">--:--</strong>.</p>
+            <p>Participantes: <ul id="my-match-participants-list"></ul></p>
+            <div id="my-match-modal-options">
+                <button id="my-match-cancel-match-btn" class="hidden">Cancelar Partida Completa</button>
+                <button id="my-match-leave-btn">Abandonar Partida</button>
+                <button id="my-match-close-btn">Cerrar</button>
+            </div>
+        </div>
+    </div>
+  
+    <script src="dashboard.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>

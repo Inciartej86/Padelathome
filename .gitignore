@@ -1,0 +1,8 @@
+
+   1     node_modules/
+   2     .env
+   3     .env.save
+   4     npm-debug.log
+   5     p_at_home_backend_backup_*.gz
+   6     p_at_home_backend_db_backup_*.sql
+   7     p_at_home_backend_files_backup_*.gz

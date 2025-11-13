@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Padel@Home</title>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        window.location.href = '/dashboard.html';
+      } else {
+        window.location.href = '/login.html';
+      }
+    });
+  </script>
+</head>
+<body>
+  <p>Redirigiendo...</p>
+</body>
+</html>
