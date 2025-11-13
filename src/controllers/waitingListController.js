@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { io } = require('../../server'); // Import io instance
 
 const joinWaitingList = async (req, res) => {
   const userId = req.user.id;
@@ -33,6 +34,7 @@ const joinWaitingList = async (req, res) => {
     );
 
     res.status(201).json({ message: 'Te has apuntado a la lista de espera correctamente.', entry: rows[0] });
+    io.emit('waitlist:joined', { courtId: courtId, slotStartTime: slotStartTime, userId: userId }); // Emit WebSocket event
 
   } catch (error) {
     console.error('Error al unirse a la lista de espera:', error);
@@ -69,10 +71,11 @@ const confirmBookingFromWaitlist = async (req, res) => {
     }
 
     // Crear la nueva reserva
-    await client.query(
-      "INSERT INTO bookings (court_id, user_id, start_time, end_time, status) VALUES ($1, $2, $3, $4, 'confirmed')",
+    const newBookingResult = await client.query(
+      "INSERT INTO bookings (court_id, user_id, start_time, end_time, status) VALUES ($1, $2, $3, $4, 'confirmed') RETURNING *",
       [entry.court_id, entry.user_id, entry.slot_start_time, entry.slot_end_time]
     );
+    const newBooking = newBookingResult.rows[0];
 
     // Actualizar el estado de la entrada de la lista de espera
     await client.query(
@@ -82,6 +85,7 @@ const confirmBookingFromWaitlist = async (req, res) => {
 
     await client.query('COMMIT');
     res.status(201).json({ message: '¡Reserva confirmada exitosamente!' });
+    io.emit('booking:created', newBooking); // Emit WebSocket event
 
   } catch (error) {
     await client.query('ROLLBACK');

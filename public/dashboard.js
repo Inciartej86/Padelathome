@@ -1,4 +1,47 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const socket = io(); // Connects to the same host/port as the HTML page
+
+    socket.on('connect', () => {
+        console.log('Connected to WebSocket server');
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Disconnected from WebSocket server');
+    });
+
+    socket.on('connect_error', (error) => {
+        console.error('WebSocket connection error:', error);
+    });
+
+    // WebSocket Event Listeners
+    socket.on('booking:created', (booking) => {
+        console.log('WebSocket: Booking created', booking);
+        fetchMyBooking();
+        renderWeeklyCalendar(currentDisplayedDate);
+    });
+
+    socket.on('booking:cancelled', (data) => {
+        console.log('WebSocket: Booking cancelled', data);
+        fetchMyBooking();
+        renderWeeklyCalendar(currentDisplayedDate);
+    });
+
+    socket.on('match:updated', (data) => {
+        console.log('WebSocket: Match updated', data);
+        fetchMyBooking(); // To update 'My Next Booking' if it's an open match
+        renderWeeklyCalendar(currentDisplayedDate);
+    });
+
+    socket.on('waitlist:joined', (data) => {
+        console.log('WebSocket: User joined waitlist', data);
+        // No direct UI update needed for all users, calendar refresh will show if slot becomes free
+    });
+
+    socket.on('waitlist:notificationSent', (data) => {
+        console.log('WebSocket: Waitlist notification sent', data);
+        // No direct UI update needed for all users, calendar refresh will show if slot becomes free
+    });
+
     // --- 1. CONFIGURACIÓN INICIAL Y ELEMENTOS DEL DOM ---
     const API_BASE_URL = 'https://padelathome.wincicloud.win'; // IP de la Raspberry Pi
     const authToken = localStorage.getItem('authToken');

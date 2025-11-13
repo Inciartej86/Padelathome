@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { io } = require('../../server'); // Import io instance
 
 const getOpenMatches = async (req, res) => {
   try {
@@ -57,8 +58,14 @@ const joinOpenMatch = async (req, res) => {
 
     // Añadir participante
     await client.query("INSERT INTO match_participants (booking_id, user_id) VALUES ($1, $2)", [bookingId, userId]);
+    
+    // Get updated participant count
+    const updatedParticipantsResult = await client.query("SELECT COUNT(user_id) FROM match_participants WHERE booking_id = $1", [bookingId]);
+    const currentParticipants = parseInt(updatedParticipantsResult.rows[0].count);
+
     await client.query('COMMIT');
     res.status(200).json({ message: 'Te has unido a la partida con éxito.' });
+    io.emit('match:updated', { bookingId: bookingId, currentParticipants: currentParticipants, maxParticipants: booking.max_participants }); // Emit WebSocket event
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error al unirse a la partida:', error);
@@ -130,6 +137,17 @@ const leaveOpenMatch = async (req, res) => {
 
     await client.query('COMMIT');
     res.json({ message: 'Has abandonado la partida correctamente.' });
+
+    // Get updated participant count after leaving
+    const updatedParticipantsResult = await client.query("SELECT COUNT(user_id) FROM match_participants WHERE booking_id = $1", [bookingId]);
+    const currentParticipants = parseInt(updatedParticipantsResult.rows[0].count);
+
+    io.emit('match:updated', { bookingId: bookingId, currentParticipants: currentParticipants, maxParticipants: booking.max_participants });
+
+    // If the match was cancelled, also emit a booking:cancelled event
+    if (booking.status === 'cancelled_by_admin') { // Check the status AFTER the update
+        io.emit('booking:cancelled', { bookingId: bookingId, courtId: booking.court_id, startTime: booking.start_time });
+    }
 
   } catch (error) {
     await client.query('ROLLBACK');
