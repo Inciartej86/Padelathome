@@ -1,6 +1,7 @@
 /* --- 1. Definición de Variables (Nuestra Paleta de Colores) --- */
 :root {
   --primary-color: #0d6efd;      /* Azul profesional */
+  --primary-color-rgb: 13, 110, 253; /* RGB values for --primary-color */
   --secondary-color: #6c757d;   /* Gris neutro */
   --accent-color: #527853;       /* Verde salvia (sage green) */
   --background-color: #f8f9fa;  /* Gris muy claro de fondo */
@@ -50,13 +51,22 @@ button {
   background-color: var(--primary-color);
   color: white;
   border: none;
-  padding: 10px 15px;
-  border-radius: 5px;
+  padding: 12px 20px; /* Slightly more padding */
+  border-radius: 8px; /* Softer corners */
   cursor: pointer;
   font-size: 1em;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Subtle shadow */
 }
-button:hover { background-color: #0b5ed7; }
+button:hover {
+  background-color: #0b5ed7;
+  transform: translateY(-1px); /* Slight lift effect */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
 
 /* --- Estilos para Formularios --- */
 .form-group {
@@ -72,11 +82,20 @@ input[type="tel"], input[type="date"], input[type="time"],
 input[type="number"], input[type="datetime-local"],
 textarea, select {
   width: 100%;
-  padding: 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
+  padding: 12px; /* Slightly more padding */
+  border: 1px solid var(--border-color); /* Keep border, but enhance focus */
+  border-radius: 8px; /* Softer corners */
   box-sizing: border-box;
   font-size: 1em;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease; /* Smooth transitions */
+}
+input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus,
+input[type="tel"]:focus, input[type="date"]:focus, input[type="time"]:focus,
+input[type="number"]:focus, input[type="datetime-local"]:focus,
+textarea:focus, select:focus {
+  border-color: var(--primary-color); /* Highlight border on focus */
+  outline: none; /* Remove default outline */
+  box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.25); /* Subtle glow */
 }
 
 /* --- Estilos para Páginas de Login/Registro --- */
@@ -199,7 +218,7 @@ button#leave-match-btn { background-color: var(--secondary-color); }
   background-color: var(--danger-color);
 }
 
-#my-match-participants-list {
+#my-match-participants-list, #join-match-participants-list {
   list-style: none;
   padding: 0;
   margin: 10px 0;
@@ -210,14 +229,14 @@ button#leave-match-btn { background-color: var(--secondary-color); }
   background-color: var(--background-color);
 }
 
-#my-match-participants-list li {
+#my-match-participants-list li, #join-match-participants-list li {
   padding: 8px 15px;
   border-bottom: 1px solid var(--border-color);
   text-align: left;
   color: var(--text-color);
 }
 
-#my-match-participants-list li:last-child {
+#my-match-participants-list li:last-child, #join-match-participants-list li:last-child {
   border-bottom: none;
 }
 

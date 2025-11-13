@@ -26,10 +26,15 @@ document.addEventListener('DOMContentLoaded', () => {
         renderWeeklyCalendar(currentDisplayedDate);
     });
 
-    socket.on('match:updated', (data) => {
+    socket.on('match:updated', async (data) => {
         console.log('WebSocket: Match updated', data);
-        fetchMyBooking(); // To update 'My Next Booking' if it's an open match
-        renderWeeklyCalendar(currentDisplayedDate);
+        await fetchMyBooking(); // Ensure userActiveBooking is up-to-date
+        await renderWeeklyCalendar(currentDisplayedDate);
+
+        // If the updated match is the user's active booking, and the modal is not already open, show it
+        if (userActiveBooking && userActiveBooking.id === data.bookingId && myMatchModalOverlay.classList.contains('hidden')) {
+            showMyMatchModal(userActiveBooking.id, userActiveBooking.start_time);
+        }
     });
 
     socket.on('waitlist:joined', (data) => {
@@ -262,11 +267,37 @@ document.addEventListener('DOMContentLoaded', () => {
         waitlistModalOverlay.classList.remove('hidden');
     };
     
-    const showOpenMatchModal = (target) => {
+    const joinMatchParticipantsList = document.getElementById('join-match-participants-list'); // Get reference to the new element
+
+    const showOpenMatchModal = async (target) => { // Made async to await fetch
         const { bookingId, participants, maxParticipants, starttime } = target.dataset;
         joinMatchTime.textContent = new Date(starttime).toLocaleString('es-ES');
         joinMatchParticipants.textContent = `${participants}/${maxParticipants}`;
         joinMatchConfirmBtn.dataset.bookingId = bookingId;
+
+        // Fetch and display participants
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/matches/${bookingId}/participants`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+            if (!response.ok) throw new Error('No se pudieron obtener los participantes.');
+            const { participants: currentPlayers } = await response.json(); // Rename to avoid conflict
+            
+            joinMatchParticipantsList.innerHTML = ''; // Clear previous list
+            if (currentPlayers.length > 0) {
+                currentPlayers.forEach(p => {
+                    const li = document.createElement('li');
+                    li.textContent = p.name;
+                    joinMatchParticipantsList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = 'No hay jugadores apuntados aún.';
+                joinMatchParticipantsList.appendChild(li);
+            }
+        } catch (error) {
+            console.error('Error al cargar participantes para unirse:', error);
+            joinMatchParticipantsList.innerHTML = '<li>Error al cargar participantes.</li>';
+        }
+
         joinMatchModalOverlay.classList.remove('hidden');
     };
 
@@ -279,13 +310,20 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Nuevo: Mostrar modal para mi partida abierta
-    const showMyMatchModal = async (target) => {
-        const bookingId = target.dataset.myBookingId;
-        const startTime = target.dataset.starttime;
+    const showMyMatchModal = async (bookingId, startTime) => { // Modified to accept bookingId and startTime directly
+        if (!userActiveBooking || userActiveBooking.id !== bookingId) {
+            // If userActiveBooking is not set or doesn't match, fetch it
+            await fetchMyBooking();
+            if (!userActiveBooking || userActiveBooking.id !== bookingId) {
+                console.error('Error: userActiveBooking does not match the provided bookingId.');
+                return;
+            }
+        }
+        
         myMatchModalTime.textContent = new Date(startTime).toLocaleString('es-ES');
         
         // Determinar si el usuario es el propietario de la partida
-        const isOwner = userActiveBooking && userActiveBooking.id === bookingId && userActiveBooking.participation_type === 'owner';
+        const isOwner = userActiveBooking.participation_type === 'owner';
 
         if (isOwner) {
             myMatchCancelMatchBtn.classList.remove('hidden');
@@ -332,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
         // Nuevo: Si es mi partida abierta
         else if (target.classList.contains('my-joined-match')) {
-            showMyMatchModal(target);
+            showMyMatchModal(target.dataset.myBookingId, target.dataset.starttime);
         }
         // Comportamiento existente para otros slots
         else if (target.classList.contains('available')) {
