@@ -128,7 +128,117 @@ const getWeekSchedule = async (req, res) => {
   }
 };
 
+const getDaySchedule = async (req, res) => {
+    const { courtId, date } = req.query;
+    const userId = req.user.id; // Asumiendo que el ID de usuario está en req.user.id
+
+    if (!courtId || !date) {
+        return res.status(400).json({ message: 'Se requiere courtId y date.' });
+    }
+
+    try {
+        const targetDate = parseISO(date);
+        const startOfTargetDate = startOfDay(targetDate);
+        const endOfTargetDate = endOfDay(targetDate);
+
+        // 1. Obtener todas las reservas y bloqueos del día
+        const bookingsResult = await pool.query(
+            `SELECT b.id, b.user_id, b.start_time, b.end_time, b.is_open_match, b.max_participants,
+                    (SELECT COUNT(*)::int FROM match_participants mp WHERE mp.booking_id = b.id) + 1 as participants_count
+             FROM bookings b
+             WHERE b.court_id = $1 AND b.status = 'confirmed' AND b.start_time >= $2 AND b.start_time < $3`,
+            [courtId, startOfTargetDate, endOfTargetDate]
+        );
+        
+        const myParticipantBookingsResult = await pool.query(
+            `SELECT booking_id FROM match_participants WHERE user_id = $1`, [userId]
+        );
+        const myParticipantBookingIds = myParticipantBookingsResult.rows.map(r => r.booking_id);
+
+        const blockedResult = await pool.query(
+            "SELECT start_time, end_time, reason FROM blocked_periods WHERE court_id = $1 AND start_time >= $2 AND end_time <= $3",
+            [courtId, startOfTargetDate, endOfTargetDate]
+        );
+
+        const settingsResult = await pool.query(
+            "SELECT setting_key, setting_value FROM instance_settings WHERE setting_key IN ('operating_open_time', 'operating_close_time')"
+        );
+
+        // 2. Procesar los datos
+        const bookings = bookingsResult.rows;
+        const blockedPeriods = blockedResult.rows;
+        const openTime = settingsResult.rows.find(s => s.setting_key === 'operating_open_time')?.setting_value || '08:00';
+        const closeTime = settingsResult.rows.find(s => s.setting_key === 'operating_close_time')?.setting_value || '22:00';
+
+        // 3. Generar los slots del día
+        const daySlots = [];
+        const dayString = format(targetDate, 'yyyy-MM-dd');
+        const dayStartTime = new Date(`${dayString}T${openTime}:00`);
+        const dayEndTime = new Date(`${dayString}T${closeTime}:00`);
+        
+        for (let i = new Date(dayStartTime); i < dayEndTime; i.setMinutes(i.getMinutes() + 30)) {
+            const slotTime = new Date(i);
+            let slotInfo = { 
+                startTime: slotTime.toISOString(), 
+                status: 'available',
+                availableDurations: [] 
+            };
+
+            const conflictingBooking = bookings.find(b => slotTime >= new Date(b.start_time) && slotTime < new Date(b.end_time));
+            const conflictingBlock = blockedPeriods.find(b => slotTime >= new Date(b.start_time) && slotTime < new Date(b.end_time));
+            
+            if (conflictingBlock) {
+                slotInfo.status = 'blocked';
+                slotInfo.reason = conflictingBlock.reason;
+            } else if (conflictingBooking) {
+                slotInfo.bookingId = conflictingBooking.id;
+
+                // Es mi reserva?
+                if (conflictingBooking.user_id === userId) {
+                    slotInfo.status = 'my_private_booking';
+                } else if (myParticipantBookingIds.includes(conflictingBooking.id)) {
+                    slotInfo.status = 'my_joined_match';
+                }
+                // Es partida abierta?
+                else if (conflictingBooking.is_open_match) {
+                    const participants = conflictingBooking.participants_count;
+                    if (participants >= conflictingBooking.max_participants) {
+                        slotInfo.status = 'open_match_full';
+                    } else {
+                        slotInfo.status = 'open_match_available';
+                    }
+                    slotInfo.participants = participants;
+                    slotInfo.maxParticipants = conflictingBooking.max_participants;
+                } else {
+                    slotInfo.status = 'booked';
+                }
+            } else {
+                // Calcular duraciones disponibles si el slot está libre
+                const endTime60 = new Date(slotTime.getTime() + 60 * 60000);
+                if (isSlotAvailable(slotTime, endTime60, bookings, blockedPeriods) && endTime60 <= dayEndTime) {
+                    slotInfo.availableDurations.push(60);
+                }
+                const endTime90 = new Date(slotTime.getTime() + 90 * 60000);
+                if (isSlotAvailable(slotTime, endTime90, bookings, blockedPeriods) && endTime90 <= dayEndTime) {
+                    slotInfo.availableDurations.push(90);
+                }
+                 // Si es 'available' pero no hay duraciones, no lo mostramos
+                if (slotInfo.availableDurations.length === 0) {
+                   continue;
+                }
+            }
+            daySlots.push(slotInfo);
+        }
+        res.json(daySlots);
+    } catch (error) {
+        console.error('Error fetching daily schedule:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+
 module.exports = {
   getAvailability,
   getWeekSchedule,
+  getDaySchedule,
 };

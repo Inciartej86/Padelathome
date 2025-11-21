@@ -22,16 +22,30 @@
             <h2>Mi Próxima Reserva</h2>
             <div id="my-booking">Cargando...</div>
         </section>
+
+        <!-- Contenedor para el selector de pista, oculto por defecto -->
+        <div class="court-selector-container hidden card">
+            <label for="court-select">Selecciona una pista:</label>
+            <select id="court-select"></select>
+        </div>
     
         <section class="card">
-            <h2>Calendario Semanal de Disponibilidad</h2>
+            <h2 class="desktop-only">Calendario Semanal de Disponibilidad</h2>
+            <h2 class="mobile-only">Disponibilidad Diaria</h2>
             <div class="calendar-header">
                 <button id="prev-week-btn">&lt; Semana Anterior</button>
                 <h3 id="week-dates-title">Cargando...</h3>
                 <button id="next-week-btn">Semana Siguiente &gt;</button>
+                <!-- Contenedor para la tira de fechas en móvil -->
+                <div class="date-strip-container"></div>
             </div>
             <div id="weekly-calendar-container">
-                </div>
+                <!-- El calendario semanal se renderiza aquí -->
+            </div>
+            <!-- Contenedor para los slots diarios en vista móvil -->
+            <div id="daily-slots-container">
+                <!-- Los slots en formato de acordeón se renderizan aquí -->
+            </div>
         </section>
     </div>
 
