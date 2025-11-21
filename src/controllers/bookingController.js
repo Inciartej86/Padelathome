@@ -65,8 +65,8 @@ const createBooking = async (req, res) => {
     const event = {
       title: 'Reserva de Pista de Pádel',
       description: `Pista: ${courtName}\nReservado por: ${user.name}\n\nNos veremos en la pista, ¡no olvides dar lo mejor!`, // Corrected newline escaping
-      start: [bookingStartTime.getUTCFullYear(), bookingStartTime.getUTCMonth() + 1, bookingStartTime.getUTCDate(), bookingStartTime.getUTCHours(), bookingStartTime.getUTCMinutes()],
-      end: [bookingEndTime.getUTCFullYear(), bookingEndTime.getUTCMonth() + 1, bookingEndTime.getUTCDate(), bookingEndTime.getUTCHours(), bookingEndTime.getUTCMinutes()],
+      start: [bookingStartTime.getFullYear(), bookingStartTime.getMonth() + 1, bookingStartTime.getDate(), bookingStartTime.getHours(), bookingStartTime.getMinutes()],
+      end: [bookingEndTime.getFullYear(), bookingEndTime.getMonth() + 1, bookingEndTime.getDate(), bookingEndTime.getHours(), bookingEndTime.getMinutes()],
       status: 'CONFIRMED',
       organizer: { name: 'Padel@Home Admin', email: process.env.SMTP_USER },
       attendees: [{ name: user.name, email: user.email, rsvp: true, role: 'REQ-PARTICIPANT' }]

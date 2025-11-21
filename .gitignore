@@ -6,3 +6,6 @@ npm-debug.log
  p_at_home_backend_backup_*.gz
  p_at_home_backend_db_backup_*.sql
  p_at_home_backend_files_backup_*.gz
+*.zip
+*.tar.gz
+*backup*
