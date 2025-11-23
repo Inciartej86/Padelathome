@@ -295,9 +295,38 @@ describe('Match Routes', () => {
       expect(mockClient.release).toHaveBeenCalled();
     });
 
+    it('should not transfer organizer role if a regular participant leaves', async () => {
+        const { mockClient, connect } = require('../config/database');
+        connect.mockResolvedValue(mockClient);
+  
+        mockClient.query
+          .mockResolvedValueOnce({ rows: [] }) // BEGIN
+          .mockResolvedValueOnce({ rows: [{ id: 1, user_id: 2, start_time: new Date(Date.now() + 7 * 3600 * 1000).toISOString(), max_participants: 4 }] }) // Booking exists, user is not organizer
+          .mockResolvedValueOnce({ rowCount: 1 }) // Participant deleted
+          .mockResolvedValueOnce({ rows: [{ user_id: 2 }, { user_id: 3 }] }) // Remaining participants
+          .mockResolvedValueOnce({ rows: [] }); // COMMIT
+  
+        // Mock the user ID to be a participant, not the organizer
+        protect.mockImplementationOnce((req, res, next) => {
+          req.user = { id: 4, role: 'user' }; 
+          next();
+        });
+  
+        const res = await request(app).delete('/api/matches/1/leave');
+  
+        expect(res.statusCode).toEqual(200);
+        expect(res.body).toHaveProperty('message', 'Has abandonado la partida correctamente.');
+        expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
+        expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
+        // Ensure that the query to update the booking's user_id was NOT called
+        expect(mockClient.query).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE bookings SET user_id'));
+        expect(mockClient.release).toHaveBeenCalled();
+      });
+
     it('should transfer organizer role if organizer leaves and other participants exist', async () => {
       const { mockClient, connect } = require('../config/database');
       connect.mockResolvedValue(mockClient);
+
 
       mockClient.query
         .mockResolvedValueOnce({ rows: [] }) // BEGIN

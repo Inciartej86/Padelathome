@@ -95,38 +95,42 @@ const createBooking = async (req, res) => {
 };
 
 /**
- * @description Obtiene la próxima reserva activa del usuario (propia o como participante)
+ * @description Obtiene TODAS las reservas activas del usuario (propias o como participante)
  */
-const getMyBooking = async (req, res) => {
+const getMyBookings = async (req, res) => {
   try {
     const userId = req.user.id;
     const query = `
-      WITH MyNextBookings AS (
-        SELECT b.*, c.name as court_name, 'participant' as participation_type
-        FROM bookings b
-        JOIN courts c ON b.court_id = c.id
-        JOIN match_participants mp ON b.id = mp.booking_id
-        WHERE mp.user_id = $1 AND b.user_id != $1 AND b.status = 'confirmed' AND b.end_time > (NOW() AT TIME ZONE 'UTC')
-        UNION
-        SELECT b.*, c.name as court_name, 'owner' as participation_type
-        FROM bookings b
-        JOIN courts c ON b.court_id = c.id
-        WHERE b.user_id = $1 AND b.status = 'confirmed' AND b.end_time > (NOW() AT TIME ZONE 'UTC')
-      )
-      SELECT * FROM MyNextBookings
-      ORDER BY start_time ASC
-      LIMIT 1;
-        `;
+      SELECT 
+        b.id,
+        b.court_id,
+        b.user_id,
+        b.start_time,
+        b.end_time,
+        b.status,
+        b.is_open_match,
+        c.name as court_name,
+        CASE
+          WHEN b.user_id = $1 THEN 'owner'
+          ELSE 'participant'
+        END as participation_type
+      FROM bookings b
+      JOIN courts c ON b.court_id = c.id
+      LEFT JOIN match_participants mp ON b.id = mp.booking_id
+      WHERE 
+        (b.user_id = $1 OR mp.user_id = $1)
+        AND b.status = 'confirmed' 
+        AND b.end_time > (NOW() AT TIME ZONE 'UTC')
+      GROUP BY b.id, c.name
+      ORDER BY b.start_time ASC;
+    `;
     
-        const result = await db.query(query, [userId]);
+    const result = await db.query(query, [userId]);
     
-    if (result.rows.length > 0) {
-      res.json(result.rows[0]);
-    } else {
-      res.json(null);
-    }
+    res.json(result.rows);
+
   } catch (error) {
-    console.error('Error al obtener mi reserva:', error);
+    console.error('Error al obtener mis reservas:', error);
     res.status(500).json({ message: 'Error interno del servidor.', error: error.message });
   }
 };
@@ -208,6 +212,6 @@ const cancelMyBooking = async (req, res) => {
 // Exportamos todas las funciones del controlador
 module.exports = {
   createBooking,
-  getMyBooking,
+  getMyBookings,
   cancelMyBooking,
 };
