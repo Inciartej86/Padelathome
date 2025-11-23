@@ -2,6 +2,22 @@ import { fetchApi, authToken } from './js/services/api.js';
 import { formatDate, formatTime, showNotification } from './js/utils.js';
 import * as Modals from './js/ui/modals.js';
 
+// --- Utilidades ---
+const debounce = (func, delay) => {
+    let timeout;
+    return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+    };
+};
+
+function toISODateString(date) {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 // Inicializar conexión WebSocket
 const socket = io();
 socket.on('connect', () => console.log('Connected to WebSocket'));
@@ -15,9 +31,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Estado Global ---
     let currentDisplayedDate = new Date();
     let weeklyScheduleData = {};
-    let userActiveBooking = null;
+    let userActiveBookings = [];
     let selectedCourtId = null;
     let courtsData = [];
+    let dailySlotsData = [];
 
     // --- Elementos del DOM ---
     const welcomeMessage = document.getElementById('welcome-message');
@@ -61,8 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchMyBooking = async () => {
         try {
             const bookings = await fetchApi('/bookings/me'); // Espera array
-            // Tomamos el primero si existe, para la lógica de "active"
-            userActiveBooking = (bookings && bookings.length > 0) ? bookings[0] : null;
+            userActiveBookings = bookings || [];
             renderMyBookings(bookings);
         } catch (error) {
             console.error(error);
@@ -76,15 +92,24 @@ document.addEventListener('DOMContentLoaded', () => {
             bookings.forEach(booking => {
                 const isOwner = booking.participation_type === 'owner';
                 const btnText = isOwner ? 'Cancelar Reserva' : 'Abandonar Partida';
-                // Usamos data attributes para delegación
-                const btn = `<button class="action-btn" data-action="${isOwner ? 'cancel' : 'leave'}" data-id="${booking.id}">${btnText}</button>`;
                 
                 const div = document.createElement('div');
                 div.className = 'booking-item';
-                div.innerHTML = `
-                    <p><strong>${booking.court_name}</strong> - ${new Date(booking.start_time).toLocaleString()}</p>
-                    ${btn}
-                `;
+
+                const p = document.createElement('p');
+                const strong = document.createElement('strong');
+                strong.textContent = booking.court_name;
+                p.appendChild(strong);
+                p.append(` - ${new Date(booking.start_time).toLocaleString()}`);
+
+                const btn = document.createElement('button');
+                btn.className = 'action-btn';
+                btn.dataset.action = isOwner ? 'cancel' : 'leave';
+                btn.dataset.id = booking.id;
+                btn.textContent = btnText;
+                
+                div.appendChild(p);
+                div.appendChild(btn);
                 myBookingContainer.appendChild(div);
             });
         } else {
@@ -120,8 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isMobile) {
             calendarContainer.style.display = 'none';
             dailySlotsContainer.style.display = 'block';
-            // TODO: Implementar renderMobileDailyView si se desea
-            dailySlotsContainer.innerHTML = '<p>Vista móvil en construcción.</p>'; 
+            renderMobileView(new Date());
         } else {
             dailySlotsContainer.style.display = 'none';
             calendarContainer.style.display = 'block';
@@ -129,10 +153,184 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- Renderizado de la Vista Móvil ---
+    async function renderMobileView(date) {
+        dailySlotsContainer.innerHTML = `
+            <div class="date-strip-container">
+                <div class="date-strip"></div>
+            </div>
+            <div class="accordion-container"></div>
+        `;
+        renderDateStrip(date);
+        await renderDaySlots(date);
+    }
+
+    function renderDateStrip(selectedDate) {
+        const strip = dailySlotsContainer.querySelector('.date-strip');
+        strip.innerHTML = '';
+        let date = new Date();
+        for (let i = 0; i < 14; i++) {
+            const dayItem = document.createElement('div');
+            dayItem.className = 'date-item';
+            if (date.toDateString() === selectedDate.toDateString()) {
+                dayItem.classList.add('selected');
+            }
+            dayItem.dataset.date = toISODateString(date);
+            dayItem.innerHTML = `
+                <span class="day-name">${date.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
+                <span class="day-number">${date.getDate()}</span>
+            `;
+            strip.appendChild(dayItem);
+            date.setDate(date.getDate() + 1);
+        }
+    }
+
+    async function renderDaySlots(date) {
+        const accordionContainer = dailySlotsContainer.querySelector('.accordion-container');
+        accordionContainer.innerHTML = '<p>Cargando slots...</p>';
+        const dateString = toISODateString(date);
+        try {
+            dailySlotsData = await fetchApi(`/schedule/day?courtId=${selectedCourtId}&date=${dateString}`);
+            if (!dailySlotsData || dailySlotsData.length === 0) {
+                accordionContainer.innerHTML = '<p>No hay slots disponibles para este día.</p>';
+                return;
+            }
+            accordionContainer.innerHTML = '';
+            const now = new Date();
+            dailySlotsData.forEach((slot, index) => {
+                const slotTime = new Date(slot.startTime);
+                let status = slot.status;
+                if (slotTime < now) {
+                    status = 'past';
+                }
+
+                const div = document.createElement('div');
+                div.className = 'daily-slot';
+                div.innerHTML = `
+                    <div class="slot-header" data-status="${status}" data-index="${index}">
+                        <span class="slot-time">${formatTime(slotTime)}</span>
+                        <span class="slot-status" data-status="${status}">${getSlotStatusText({ ...slot, status })}</span>
+                    </div>
+                    <div class="slot-details"></div>
+                `;
+                accordionContainer.appendChild(div);
+            });
+        } catch (error) {
+            accordionContainer.innerHTML = `<p class="error-text">${error.message}</p>`;
+        }
+    }
+
+    function getSlotStatusText(slot) {
+        switch (slot.status) {
+            case 'available': return 'Disponible';
+            case 'booked': return 'Ocupado';
+            case 'blocked': return 'Bloqueado';
+            case 'open_match_available': return `Abierta ${slot.participants_count || 1}/${slot.max_participants || 4}`;
+            case 'open_match_full': return `Llena ${slot.participants_count || 4}/${slot.max_participants || 4}`;
+            case 'my_private_booking': return 'Mi Reserva';
+            case 'my_joined_match': return `Inscrito`;
+            case 'past': return 'Pasado';
+            default: return 'No disponible';
+        }
+    }
+
+    function renderSlotDetails(detailsContainer, slot) {
+        detailsContainer.innerHTML = ''; // Limpiar
+        const { status, startTime, bookingId, availableDurations } = slot;
+
+        if (status === 'available') {
+            detailsContainer.innerHTML = `
+                <div class="form-group open-match-toggle">
+                    <input type="checkbox" id="mobile-open-match-checkbox">
+                    <label for="mobile-open-match-checkbox">Abrir partida (4 jugadores)</label>
+                </div>
+                <div class="duration-options">
+                    ${availableDurations.map(d => `<button data-duration="${d}">${d} min</button>`).join('')}
+                </div>
+                <button class="cancel-booking">Cancelar</button>
+            `;
+            detailsContainer.querySelector('.cancel-booking').addEventListener('click', () => {
+                detailsContainer.classList.remove('active');
+                detailsContainer.innerHTML = '';
+            });
+            detailsContainer.querySelector('.duration-options').addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    const duration = e.target.dataset.duration;
+                    const isOpenMatch = detailsContainer.querySelector('#mobile-open-match-checkbox').checked;
+                    modalHandlers.onConfirmBooking({
+                        startTime: startTime,
+                        durationMinutes: parseInt(duration, 10),
+                        isOpenMatch: isOpenMatch
+                    });
+                }
+            });
+        } else if (status === 'my_private_booking') {
+            detailsContainer.innerHTML = `<p><strong>Mi Reserva Privada</strong></p><button class="cancel-booking-btn">Cancelar Reserva</button>`;
+            detailsContainer.querySelector('.cancel-booking-btn').addEventListener('click', () => {
+                modalHandlers.onCancelBooking({ bookingId: bookingId });
+            });
+        } else if (status === 'my_joined_match') {
+            detailsContainer.innerHTML = `
+                <p><strong>Partida Abierta (Inscrito)</strong></p>
+                <p>Participantes:</p>
+                <ul class="participants-list"></ul>
+                <button class="leave-match-btn">Abandonar Partida</button>
+            `;
+            const participantsList = detailsContainer.querySelector('.participants-list');
+            fetchApi(`/matches/${bookingId}/participants`).then(({ participants }) => {
+                if (participants && participants.length > 0) {
+                    participants.forEach(p => {
+                        const li = document.createElement('li');
+                        li.textContent = p.name;
+                        participantsList.appendChild(li);
+                    });
+                } else {
+                    participantsList.innerHTML = '<li>Cargando...</li>';
+                }
+            });
+            detailsContainer.querySelector('.leave-match-btn').addEventListener('click', () => {
+                modalHandlers.onLeaveMatch({ bookingId: bookingId });
+            });
+        } else if (status === 'booked' || status === 'open_match_full') {
+            detailsContainer.innerHTML = `<p>Este horario no está disponible.</p><button class="join-waitlist-btn">Apuntarse a lista de espera</button>`;
+            detailsContainer.querySelector('.join-waitlist-btn').addEventListener('click', () => {
+                modalHandlers.onJoinWaitlist({ courtId: selectedCourtId, startTime: startTime });
+            });
+        } else if (status === 'open_match_available') {
+            detailsContainer.innerHTML = `
+                <p><strong>Partida Abierta</strong></p>
+                <p>Participantes:</p>
+                <ul class="participants-list"></ul>
+                <button class="join-match-btn">Unirse a la Partida</button>
+                <button class="cancel-booking">Cancelar</button>
+            `;
+            const participantsList = detailsContainer.querySelector('.participants-list');
+            fetchApi(`/matches/${bookingId}/participants`).then(({ participants }) => {
+                if (participants && participants.length > 0) {
+                    participants.forEach(p => {
+                        const li = document.createElement('li');
+                        li.textContent = p.name;
+                        participantsList.appendChild(li);
+                    });
+                } else {
+                    participantsList.innerHTML = '<li>¡Sé el primero en unirte!</li>';
+                }
+            });
+            detailsContainer.querySelector('.join-match-btn').addEventListener('click', () => {
+                modalHandlers.onJoinMatch({ bookingId: bookingId });
+            });
+            detailsContainer.querySelector('.cancel-booking').addEventListener('click', () => {
+                detailsContainer.classList.remove('active');
+                detailsContainer.innerHTML = '';
+            });
+        }
+    }
+
+
     // --- Renderizado del Calendario (Grid) ---
     async function renderWeeklyCalendar(date) {
         calendarContainer.innerHTML = '<p>Cargando...</p>';
-        const dateString = date.toISOString().split('T')[0];
+        const dateString = toISODateString(date);
         try {
             const data = await fetchApi(`/schedule/week?courtId=${selectedCourtId}&date=${dateString}`);
             weeklyScheduleData = data.schedule;
@@ -169,13 +367,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     let status = daySlot.status;
                     if (slotTime < now) status = 'past';
 
-                    // Clase CSS base
+                    // Clase CSS base y específicas
                     cell.className = `grid-cell slot ${status}`;
+                     if (status === 'my_open_match' || status === 'my_private_booking') {
+                        cell.classList.add('my-booking');
+                    }
                     
                     // Data attributes para el click
                     cell.dataset.status = status;
                     cell.dataset.starttime = daySlot.startTime;
                     if (daySlot.bookingId) cell.dataset.bookingId = daySlot.bookingId;
+                    if (daySlot.participation_type) cell.dataset.participationType = daySlot.participation_type;
                     
                     // Lógica de texto y atributos específicos
                     let text = '';
@@ -187,24 +389,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (status === 'blocked') {
                         text = daySlot.reason || 'Bloqueado';
                     } else if (status === 'open_match_available') {
-                        text = `Abierta ${daySlot.participants}/4`;
-                        cell.dataset.action = 'join_match';
-                        cell.dataset.participants = daySlot.participants;
-                        cell.dataset.maxParticipants = daySlot.maxParticipants;
+                        text = `Abierta ${daySlot.participants || 1}/${daySlot.maxParticipants || 4}`;
                     } else if (status === 'open_match_full') {
                         text = 'Llena';
                         cell.dataset.waitlistable = 'true';
+                    } else if (status === 'my_private_booking') {
+                        text = 'Mi Reserva';
+                    } else if (status === 'my_open_match') {
+                        text = `Inscrito`;
                     } else if (status === 'past') {
                         text = 'Pasado';
                     }
-
-                    // Sobreescribir si es MI reserva
-                    // Buscamos en la lista de mis reservas activas si alguna coincide con este slot
-                    // Nota: userActiveBooking es un array ahora en la lógica global, pero aquí simplificamos
-                    // Para hacerlo perfecto, deberíamos iterar sobre userActiveBookings (array)
-                    // Pero como optimización, confiamos en el renderMyBookings para la gestión
                     
-                    // Importante: NO ponemos botones HTML dentro. El clic lo maneja el contenedor.
                     cell.textContent = text;
                     grid.appendChild(cell);
                 });
@@ -228,9 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 await fetchApi('/bookings', { method: 'POST', body: JSON.stringify(body) });
                 showNotification('Reserva creada', 'success');
-                Modals.hideAllModals(); // Asegúrate de exportar esto en modals.js o cerrar manualmente
-                // Hack si hideAllModals no es exportada:
-                document.getElementById('modal-overlay').classList.add('hidden');
+                Modals.hideAllModals();
                 refreshDataAndRender();
             } catch (e) { showNotification(e.message, 'error'); }
         },
@@ -243,14 +437,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ courtId: parseInt(data.courtId), slotStartTime: data.startTime, slotEndTime: end })
                 });
                 showNotification('Apuntado a lista de espera', 'success');
-                document.getElementById('waitlist-modal-overlay').classList.add('hidden');
+                Modals.hideAllModals();
             } catch (e) { showNotification(e.message, 'error'); }
         },
         onJoinMatch: async (data) => {
             try {
                 await fetchApi(`/matches/${data.bookingId}/join`, { method: 'POST' });
                 showNotification('Te has unido a la partida', 'success');
-                document.getElementById('join-match-modal-overlay').classList.add('hidden');
+                Modals.hideAllModals();
                 refreshDataAndRender();
             } catch (e) { showNotification(e.message, 'error'); }
         },
@@ -289,7 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = '/login.html';
         });
         adminPanelBtn.addEventListener('click', () => window.location.href = '/admin.html');
-        profileBtn.addEventListener('click', () => window.location.href = '/profile.html');
+        if (profileBtn) profileBtn.addEventListener('click', () => window.location.href = '/profile.html');
         if(faqBtn) faqBtn.addEventListener('click', () => window.location.href = '/faq.html');
 
         prevWeekBtn.addEventListener('click', () => {
@@ -314,29 +508,93 @@ document.addEventListener('DOMContentLoaded', () => {
         calendarContainer.addEventListener('click', async (e) => {
             const cell = e.target.closest('.slot');
             if (!cell) return;
+
             const status = cell.dataset.status;
             const startTime = cell.dataset.starttime;
-            
-            if (status === 'available') {
-                Modals.showBookingModal(startTime, [60, 90]);
-            } else if (status === 'booked' || status === 'open_match_full') {
-                // Solo si tiene el flag waitlistable
-                if (cell.dataset.waitlistable) Modals.showWaitlistModal(startTime, selectedCourtId);
-            } else if (status === 'open_match_available') {
-                const bookingId = cell.dataset.bookingId;
-                try {
-                    const participants = await fetchApi(`/matches/${bookingId}/participants`);
-                    Modals.showOpenMatchModal({
-                        bookingId, 
-                        starttime: startTime,
-                        participants: cell.dataset.participants,
-                        maxParticipants: cell.dataset.maxParticipants
+            const bookingId = cell.dataset.bookingId ? parseInt(cell.dataset.bookingId, 10) : null;
+            const participationType = cell.dataset.participationType;
+
+            // Lógica de click basada en el nuevo status
+            switch (status) {
+                case 'available':
+                    Modals.showBookingModal(startTime, [60, 90]);
+                    break;
+                
+                case 'my_private_booking':
+                    Modals.showMyBookingModal(bookingId, startTime);
+                    break;
+
+                case 'my_open_match': {
+                    const { participants } = await fetchApi(`/matches/${bookingId}/participants`);
+                    Modals.showMyMatchModal({
+                        bookingId: bookingId,
+                        startTime: startTime,
+                        isOwner: participationType === 'owner'
                     }, participants);
-                } catch (e) { console.error(e); }
+                    break;
+                }
+
+                case 'open_match_available': {
+                    try {
+                        const { participants } = await fetchApi(`/matches/${bookingId}/participants`);
+                        Modals.showOpenMatchModal({
+                            bookingId,
+                            starttime: startTime,
+                            participants: cell.dataset.participants,
+                            maxParticipants: cell.dataset.maxParticipants
+                        }, participants);
+                    } catch (err) {
+                        console.error('Error fetching participants:', err);
+                        showNotification('No se pudieron cargar los participantes.', 'error');
+                    }
+                    break;
+                }
+
+                case 'booked':
+                case 'open_match_full':
+                    if (cell.dataset.waitlistable) {
+                        Modals.showWaitlistModal(startTime, selectedCourtId);
+                    }
+                    break;
             }
         });
 
-        window.addEventListener('resize', handleViewChange);
+        dailySlotsContainer.addEventListener('click', async (e) => {
+            if (e.target.closest('.date-item')) {
+                const dateItem = e.target.closest('.date-item');
+                const selectedDate = new Date(dateItem.dataset.date + 'T00:00:00');
+                renderDateStrip(selectedDate);
+                await renderDaySlots(selectedDate);
+            }
+
+            if (e.target.closest('.slot-header')) {
+                const header = e.target.closest('.slot-header');
+                const status = header.dataset.status;
+                if (status === 'past') return;
+                
+                const details = header.nextElementSibling;
+                const index = header.dataset.index;
+                const slot = dailySlotsData[index];
+
+                // Cerrar otros abiertos
+                document.querySelectorAll('.slot-details.active').forEach(d => {
+                    if (d !== details) {
+                        d.classList.remove('active');
+                        d.innerHTML = '';
+                    }
+                });
+                
+                details.classList.toggle('active');
+
+                if (details.classList.contains('active')) {
+                    renderSlotDetails(details, slot);
+                } else {
+                    details.innerHTML = '';
+                }
+            }
+        });
+
+        window.addEventListener('resize', debounce(handleViewChange, 250));
     }
 
     init();

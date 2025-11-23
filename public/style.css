@@ -160,7 +160,7 @@ button#leave-match-btn { background-color: var(--secondary-color); }
   flex-direction: column;
   text-align: center;
 }
-.day-header, .time-header {
+.day-header, .time-header, .header {
   background-color: #e9ecef;
   font-weight: bold;
   position: sticky; top: 0; z-index: 10;
@@ -171,10 +171,12 @@ button#leave-match-btn { background-color: var(--secondary-color); }
 
 /* Colores de estado del slot */
 .slot.available { background-color: #d4edda; }
-.slot.open-match { background-color: #fff3cd; }
+.slot.open-match-available { background-color: #fff3cd; }
 .slot.booked { background-color: #f8d7da; color: #58151d; }
 .slot.blocked { background-color: #6c757d; color: white; }
-.slot.past-slot { background-color: #adb5bd; color: #495057; cursor: not-allowed; }
+.slot.past { background-color: #adb5bd; color: #495057; cursor: not-allowed; }
+.slot.my_private_booking, .slot.my_joined_match { background-color: #f8d7da; }
+
 .slot button.join-waitlist-btn {
   background-color: var(--primary-color);
   color: white;
@@ -475,10 +477,16 @@ td button { padding: 5px 10px; margin-right: 5px; font-size: 0.9em; }
     font-weight: 500;
 }
 .slot-status[data-status="available"] { background-color: #d4edda; color: var(--text-color); }
-.slot-status[data-status="open_match_available"] { background-color: #fff3cd; color: var(--text-color); } /* NUEVO */
+.slot-status[data-status="open_match_available"] { background-color: #fff3cd; color: var(--text-color); }
 .slot-status[data-status="booked"] { background-color: #f8d7da; color: #58151d; }
 .slot-status[data-status="blocked"] { background-color: #6c757d; color: white; }
 .slot-status[data-status="past"] { background-color: #adb5bd; color: #495057; }
+.slot-status[data-status="my_private_booking"],
+.slot-status[data-status="my_joined_match"] {
+    background-color: #f8d7da;
+    color: #58151d;
+}
+
 
 .slot-header[data-status="past"] {
     cursor: not-allowed;
@@ -513,4 +521,51 @@ td button { padding: 5px 10px; margin-right: 5px; font-size: 0.9em; }
         align-items: flex-start;
         gap: 15px;
     }
+}
+
+.slot-details .cancel-booking {
+    background-color: var(--secondary-color);
+    display: block;
+    margin: 10px auto 0;
+}
+
+.slot-header[data-status="past"] {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+.slot-header[data-status="past"] .slot-time,
+.slot-header[data-status="past"] .slot-status {
+    color: #6c757d;
+}
+
+.slot-header[data-status="open_match_available"] {
+    background-color: #fff3cd;
+}
+
+.slot-header[data-status="my_private_booking"],
+.slot-header[data-status="my_joined_match"] {
+    background-color: #f8d7da;
+}
+
+.slot-header[data-status="booked"] {
+    background-color: #f8d7da;
+}
+
+.slot-details .participants-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+}
+
+.slot-details .participants-list li {
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.slot-details .join-match-btn,
+.slot-details .leave-match-btn,
+.slot-details .cancel-booking-btn {
+    width: 100%;
+    margin-top: 10px;
 }

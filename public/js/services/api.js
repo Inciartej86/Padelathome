@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://padelathome.wincicloud.win';
+const API_BASE_URL = '';
 export const authToken = localStorage.getItem('authToken');
 
 /**

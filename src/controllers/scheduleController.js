@@ -60,6 +60,8 @@ const getAvailability = async (req, res) => {
 // --- CONTROLADOR CORREGIDO PARA LA SEMANA ---
 const getWeekSchedule = async (req, res) => {
   const { courtId, date } = req.query;
+  const userId = req.user.id; // <-- OBTENEMOS EL USER ID
+
   if (!courtId || !date) {
     return res.status(400).json({ message: 'Se requiere courtId y date.' });
   }
@@ -70,6 +72,12 @@ const getWeekSchedule = async (req, res) => {
 
     const bookingsResult = await pool.query("SELECT id, user_id, start_time, end_time, is_open_match, max_participants FROM bookings WHERE court_id = $1 AND status = 'confirmed' AND start_time >= $2 AND end_time <= $3", [courtId, weekStart, weekEnd]);
     const bookingIds = bookingsResult.rows.map(b => b.id);
+
+    // OBTENEMOS LAS PARTIDAS EN LAS QUE PARTICIPA EL USUARIO
+    const myParticipantBookingsResult = await pool.query(
+        `SELECT booking_id FROM match_participants WHERE user_id = $1 AND booking_id = ANY($2::bigint[])`, [userId, bookingIds]
+    );
+    const myParticipantBookingIds = myParticipantBookingsResult.rows.map(r => r.booking_id);
 
     const [blockedResult, participantsResult, settingsResult] = await Promise.all([
       pool.query("SELECT start_time, end_time, reason FROM blocked_periods WHERE court_id = $1 AND start_time >= $2 AND end_time <= $3", [courtId, weekStart, weekEnd]),
@@ -85,13 +93,8 @@ const getWeekSchedule = async (req, res) => {
     const daysOfWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
     daysOfWeek.forEach(day => {
-      // --- CORRECCIÓN CLAVE AQUÍ ---
-      // Usamos 'format' para obtener la fecha local YYYY-MM-DD sin conversión a UTC
       const dayString = format(day, 'yyyy-MM-dd');
-      
       schedule[dayString] = [];
-      
-      // Quitamos la 'Z' para que interprete la hora como local del servidor
       const dayStartTime = new Date(`${dayString}T${openTime}:00`); 
       const dayEndTime = new Date(`${dayString}T${closeTime}:00`);
       
@@ -107,13 +110,28 @@ const getWeekSchedule = async (req, res) => {
           slotInfo.reason = conflictingBlock.reason;
         } else if (conflictingBooking) {
           slotInfo.bookingId = conflictingBooking.id;
+
+          // REFACTORIZAMOS LA LÓGICA DE ESTADO
+          const isOwner = conflictingBooking.user_id === userId;
+          const isParticipant = myParticipantBookingIds.includes(conflictingBooking.id);
+
           if (conflictingBooking.is_open_match) {
-            const participants = participantCounts[conflictingBooking.id] || 1;
-            slotInfo.status = participants >= conflictingBooking.max_participants ? 'open_match_full' : 'open_match_available';
-            slotInfo.participants = participants;
-            slotInfo.maxParticipants = conflictingBooking.max_participants;
-          } else {
-            slotInfo.status = 'booked';
+              const participants = participantCounts[conflictingBooking.id] || 0;
+              slotInfo.participants = participants;
+              slotInfo.maxParticipants = conflictingBooking.max_participants;
+
+              if (isOwner || isParticipant) {
+                  slotInfo.status = 'my_open_match';
+                  slotInfo.participation_type = isOwner ? 'owner' : 'participant';
+              } else {
+                  slotInfo.status = participants >= conflictingBooking.max_participants ? 'open_match_full' : 'open_match_available';
+              }
+          } else { // Reserva privada
+              if (isOwner) {
+                  slotInfo.status = 'my_private_booking';
+              } else {
+                  slotInfo.status = 'booked';
+              }
           }
         }
         schedule[dayString].push(slotInfo);
@@ -144,7 +162,7 @@ const getDaySchedule = async (req, res) => {
         // 1. Obtener todas las reservas y bloqueos del día
         const bookingsResult = await pool.query(
             `SELECT b.id, b.user_id, b.start_time, b.end_time, b.is_open_match, b.max_participants,
-                    (SELECT COUNT(*)::int FROM match_participants mp WHERE mp.booking_id = b.id) + 1 as participants_count
+                    (SELECT COUNT(*)::int FROM match_participants mp WHERE mp.booking_id = b.id) as participants_count
              FROM bookings b
              WHERE b.court_id = $1 AND b.status = 'confirmed' AND b.start_time >= $2 AND b.start_time < $3`,
             [courtId, startOfTargetDate, endOfTargetDate]
